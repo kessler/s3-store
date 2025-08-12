@@ -4,6 +4,10 @@ export default function createS3Store(bucket, { client = new S3Client() } = {}) 
   return new S3Store(bucket, { client })
 }
 
+export function createJsonWrapper(store) {
+  return new JsonS3StoreWrapper(store)
+}
+
 class S3Store {
   #client
   #bucket
@@ -44,9 +48,7 @@ class S3Store {
       IfMatch: etag
     })
 
-    const result = await this.#send(command)
-    result.body = async () => result.response.Body.transformToString()
-    return result
+    return await this.#send(command, GetResponseWrapper)
   }
 
   // this is here because sometimes our only option is to get the object 
@@ -58,9 +60,7 @@ class S3Store {
       Key: key
     })
 
-    const result = await this.#send(command)
-    result.body = async () => result.response.Body.transformToString()
-    return result
+    return await this.#send(command, GetResponseWrapper)
   }
 
   deleteObjectIfMatch(key, etag) {
@@ -112,9 +112,74 @@ class S3Store {
     return this.#bucket
   }
 
-  async #send(command) {
+  async #send(command, Wrapper = ResponseWrapper) {
     const response = await this.#client.send(command)
-    
-    return { etag: response.ETag, response }
+    return new Wrapper(response, response.ETag)
+  }
+}
+
+class ResponseWrapper {
+  #response
+  #etag
+
+  constructor(response, etag) {
+    this.#response = response
+    this.#etag = etag
+  }
+
+  get etag() {
+    return this.#etag
+  }
+
+  get response() {
+    return this.#response
+  }
+}
+
+class GetResponseWrapper extends ResponseWrapper {
+  constructor(response, etag) {
+    super(response, etag)
+  }
+
+  async asString() {
+    return this.response.Body.transformToString()
+  }
+
+  async asByteArray() {
+    return this.response.Body.transformToByteArray()
+  }
+
+  async asWebStream() {
+    return this.response.Body.transformToWebStream()
+  }
+
+  async asJson() {
+    return JSON.parse(await this.response.Body.transformToString())
+  }
+}
+
+class JsonS3StoreWrapper {
+  #store
+
+  constructor(store) {
+    this.#store = store
+  }
+
+  createObject(key, body) {
+    return this.#store.createObject(key, JSON.stringify(body), 'application/json')
+  }
+
+  updateObject(key, body, etag) {
+    return this.#store.updateObject(key, JSON.stringify(body), etag, 'application/json')
+  }
+
+  async getObjectIfMatch(key, etag) {
+    const response = await this.#store.getObjectIfMatch(key, etag)
+    return response.asJson()
+  }
+
+  async getObject(key) {
+    const response = await this.#store.getObject(key)
+    return response.asJson()
   }
 }

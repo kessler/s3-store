@@ -14,6 +14,30 @@ npm install @kessler/s3-store
 
 ## usage
 
+### JSON objects
+
+```javascript
+import createS3Store, { createJsonWrapper } from '@kessler/s3-store'
+
+const store = createJsonWrapper(createS3Store('my-bucket'))
+const key = 'test-object'
+
+// Create object
+const create = await store.createObject(key, { hello: 'world' })
+//create.response === AWS response
+
+const update = await store.updateObject(key, updateBody, create.etag)
+//update.response === AWS response
+
+// Get object with etag
+const getIfMatch = await store.getObjectIfMatch(key, update.etag)
+const getBody = await getIfMatch.body()
+//getIfMatch.response === AWS response
+
+```
+
+### any type of objects
+
 ```javascript
 import createS3Store from '@kessler/s3-store'
 
