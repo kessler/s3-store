@@ -2,9 +2,12 @@
 
 a CRUD+extras layer over s3 that utilizes conditional reads and writes to maintain strong consistency for optimistic concurrency. Loosely based on this [article](https://www.architecture-weekly.com/p/using-s3-but-not-the-way-you-expected)
 
-objects can be created only if they don't exist, otherwise it's an update.
+to create or access object, call `createObject` or `getObject`. Both will return an etag that you can use to `putObjectIfMatch` later. 
 
-for an update you will need the original's etag. you can also use `getObject()` to do that. it is the only method that do not use s3 conditions.
+The etag is a strong consistency token that you can use to ensure that the object has not been modified since you last read it.
+
+Please note that an `putObjectIfMatch` is a full overwrite of the object.
+However, in most cases you should already have a copy of the object in memory, so you can just modify it and call `putObjectIfMatch` with the new object. The call will fail if the object has been modified since you last read it, which is the desired behavior. In that case all you need to do is to read the object again, modify it and call `putObjectIfMatch` again. This is of course a technical action, rather than a product one. In real world use cases you will maybe want to notify the user that the object has been modified and ask them to confirm the changes.
 
 ## installation
 
@@ -14,7 +17,7 @@ npm install @kessler/s3-store
 
 ## usage
 
-### JSON objects
+### conveniece / simplified API for json objects
 
 ```javascript
 import createS3Store, { createJsonWrapper } from '@kessler/s3-store'
@@ -22,21 +25,20 @@ import createS3Store, { createJsonWrapper } from '@kessler/s3-store'
 const store = createJsonWrapper(createS3Store('my-bucket'))
 const key = 'test-object'
 
-// Create object
-const create = await store.createObject(key, { hello: 'world' })
-//create.response === AWS response
+const object = { hello: 'world' }
+const createTag = await store.createObject(key, object)
+const updateTag = await store.putObjectIfMatch(key, {...object, foo: 'bar '}, createTag)
 
-const update = await store.updateObject(key, updateBody, create.etag)
-//update.response === AWS response
+// will only work if the object exists and was not modified
+const getResult = await store.getObjectIfMatch(key, updateTag)
+// getResult deeply equals { hello: 'world', foo: 'bar' }
 
-// Get object with etag
-const getIfMatch = await store.getObjectIfMatch(key, update.etag)
-const getBody = await getIfMatch.body()
-//getIfMatch.response === AWS response
-
+// use this if you don't have any etag and want to get the object
+// for the first time.
+const [getResult1, getTag] = await store.getObject(key)
 ```
 
-### any type of objects
+### lower level API any type of objects
 
 ```javascript
 import createS3Store from '@kessler/s3-store'
@@ -47,15 +49,15 @@ const body = JSON.stringify({ hello: 'world' })
 const contentType = 'application/json'
 
 // Create object
-const create = await store.createObject(key, body, contentType)
-//create.response === AWS response
+const createResult = await store.createObject(key, body, contentType)
+//createResult.response === AWS sdk response
 
-const update = await store.updateObject(key, updateBody, create.etag, contentType)
-//update.response === AWS response
+const updateResult = await store.putObjectIfMatch(key, updateBody, createResult.etag, contentType)
+//updateResult.response === AWS sdk response
 
 // Get object with etag
-const getIfMatch = await store.getObjectIfMatch(key, update.etag)
-const getBody = await getIfMatch.body()
-//getIfMatch.response === AWS response
+const getIfMatchResult = await store.getObjectIfMatch(key, updateResult.etag)
+//getIfMatchResult.response === AWS sdk response
+console.log(await getIfMatch.asString())
 
 ```

@@ -23,13 +23,14 @@ class S3Store {
       Key: key,
       Body: body,
       ContentType: contentType,
-      IfNoneMatch: '*' // write only if the object does not already exist
+      // write only if the object does not already exist
+      IfNoneMatch: '*' 
     })
 
     return this.#send(command)
   }
 
-  updateObject(key, body, etag, contentType = 'application/json') {
+  putObjectIfMatch(key, body, etag, contentType = 'application/json') {
     const command = new PutObjectCommand({
       Bucket: this.#bucket,
       Key: key,
@@ -165,21 +166,23 @@ class JsonS3StoreWrapper {
     this.#store = store
   }
 
-  createObject(key, body) {
-    return this.#store.createObject(key, JSON.stringify(body), 'application/json')
+  async createObject(key, body) {
+    const result = await this.#store.createObject(key, JSON.stringify(body), 'application/json')
+    return result.etag
   }
 
-  updateObject(key, body, etag) {
-    return this.#store.updateObject(key, JSON.stringify(body), etag, 'application/json')
+  async putObjectIfMatch(key, body, etag) {
+    const result = await this.#store.putObjectIfMatch(key, JSON.stringify(body), etag, 'application/json')
+    return result.etag
   }
 
   async getObjectIfMatch(key, etag) {
     const response = await this.#store.getObjectIfMatch(key, etag)
-    return response.asJson()
+    return await response.asJson()
   }
 
   async getObject(key) {
     const response = await this.#store.getObject(key)
-    return response.asJson()
+    return [await response.asJson(), response.etag]
   }
 }

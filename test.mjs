@@ -8,27 +8,28 @@ test('create and update and get',async (t) => {
   const bucket = t.context.bucket
   const store = createS3Store(bucket, { client })
 
+  const testObject = { hello: 'world' }
   const key = 'test-object'
-  const body = JSON.stringify({ hello: 'world' })
   const contentType = 'application/json'
 
   // Create object
-  const create = await store.createObject(key, body, contentType)
+  const createResult = await store.createObject(key, JSON.stringify(testObject), contentType)
 
-  t.truthy(create.etag, 'etag should be returned after creating object')
-  t.truthy(create.response, 'response should be returned after creating object')
-
-  const updateBody = JSON.stringify({ hello: 'africa' })
+  t.truthy(createResult.etag, 'etag should be returned after creating object')
+  t.truthy(createResult.response, 'response should be returned after creating object')
   
+  const testObject1 = { ...testObject, updated: true }
+
   // Update object
-  const update = await store.updateObject(key, updateBody, create.etag, contentType)
+  const putResult = await store.putObjectIfMatch(key, JSON.stringify(testObject1), createResult.etag, contentType)
 
-  // Get object with ETag
-  const getIfMatch = await store.getObjectIfMatch(key, update.etag)
-  t.is(getIfMatch.etag, update.etag, 'etag should match after updating object')
-  const getBody = await getIfMatch.asString()
+  // // Get object with ETag
+  const getResult = await store.getObjectIfMatch(key, putResult.etag)
+  t.is(getResult.etag, putResult.etag, 'etag should match after getting the updated object')
 
-  t.deepEqual(getBody, updateBody, 'body should match after updating object')
+  const actualObject = await getResult.asJson()
+
+  t.deepEqual(actualObject, testObject1, 'object should match after getting the updated object')
 })
 
 test('get object without etag', async (t) => {
@@ -58,37 +59,35 @@ test('delete object', async (t) => {
   const contentType = 'application/json'
 
   // Create object
-  const createResponse = await store.createObject(key, body, contentType)
+  const createResult = await store.createObject(key, body, contentType)
 
   // Delete object
-  const deleteResponse = await store.deleteObjectIfMatch(key, createResponse.etag)
+  const deleteResult = await store.deleteObjectIfMatch(key, createResult.etag)
 
-  t.truthy(deleteResponse.response, 'response should be returned after deleting object')
+  t.truthy(deleteResult.response, 'response should be returned after deleting object')
 
   // Try to get deleted object
-  await t.throwsAsync(() => store.getObjectIfMatch(key, deleteResponse.etag), {
+  await t.throwsAsync(() => store.getObjectIfMatch(key, deleteResult.etag), {
     name: 'NoSuchKey',
     message: `The specified key does not exist.`
   })
 })
 
-test('createJsonWrapper', async (t) => {
+test('createJsonWrapper, create and get if match', async (t) => {
   const bucket = t.context.bucket
   const store = createS3Store(bucket, { client })
   const jsonWrapper = createJsonWrapper(store)
 
   const key = 'test-json-object'
   const body = { hello: 'json world' }
-  const contentType = 'application/json'
-
+  
   // Create object using JSON wrapper
-  const createResponse = await jsonWrapper.createObject(key, body)
+  const createTag = await jsonWrapper.createObject(key, body)
 
-  t.truthy(createResponse.etag, 'etag should be returned after creating object with JSON wrapper')
-  t.truthy(createResponse.response, 'response should be returned after creating object with JSON wrapper')
+  t.truthy(createTag, 'etag should be returned after creating object with JSON wrapper')
 
   // Get object using JSON wrapper
-  const getResponse = await jsonWrapper.getObjectIfMatch(key, createResponse.etag)
+  const getResponse = await jsonWrapper.getObjectIfMatch(key, createTag)
   t.deepEqual(getResponse, body, 'body should match after getting object with JSON wrapper')
 })
 
