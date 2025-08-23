@@ -1,6 +1,6 @@
 {
   "name": "@kessler/s3-store",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "a CRUD layer over s3 that utilizes conditional writes to maintain strong consistency for optimistic concurrency",
   "keywords": [
     "s3",
@@ -23,7 +23,7 @@
     "test": "npx ava"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.863.0"
+    "@aws-sdk/client-s3": "^3.873.0"
   },
   "devDependencies": {
     "ava": "^6.4.1"
