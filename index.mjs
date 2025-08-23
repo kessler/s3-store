@@ -64,11 +64,11 @@ class S3Store {
     return await this.#send(command, GetResponseWrapper)
   }
 
-  deleteObjectIfMatch(key, etag) {
+  // The DeleteObjectCommand API does not include an option for ETag-based preconditions
+  deleteObject(key) {
     const command = new DeleteObjectCommand({
       Bucket: this.#bucket,
-      Key: key,
-      IfMatch: etag
+      Key: key
     })
 
     return this.#send(command)
