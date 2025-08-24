@@ -1,6 +1,6 @@
 {
   "name": "@kessler/s3-store",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "a CRUD layer over s3 that utilizes conditional writes to maintain strong consistency for optimistic concurrency",
   "keywords": [
     "s3",
