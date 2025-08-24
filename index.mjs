@@ -64,14 +64,22 @@ class S3Store {
     return await this.#send(command, GetResponseWrapper)
   }
 
-  deleteObjectIfMatch(key, etag) {
-    const command = new DeleteObjectCommand({
-      Bucket: this.#bucket,
-      Key: key,
-      IfMatch: etag
-    })
+  async deleteObjectIfMatch(key, etag) {
+    try {
+      const command = new DeleteObjectCommand({
+        Bucket: this.#bucket,
+        Key: key,
+        IfMatch: etag
+      })
 
-    return this.#send(command)
+      return await this.#send(command)
+    } catch (error) {
+      if (error.code === 'NotImplemented' && error.Header === 'If-Match') {
+        throw new UnsupportedBucketOperationError('This bucket does not support If-Match header for delete operations. Only directory buckets support deletion with If-Match.')
+      }
+
+      throw error
+    }
   }
 
   /**
@@ -184,5 +192,12 @@ class JsonS3StoreWrapper {
   async getObject(key) {
     const response = await this.#store.getObject(key)
     return [await response.asJson(), response.etag]
+  }
+}
+
+export class UnsupportedBucketOperationError extends Error {
+  constructor(message) {
+    super(message)
+    this.name = 'UnsupportedBucketOperationError'
   }
 }
