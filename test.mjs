@@ -1,4 +1,4 @@
-import { S3Client, DeleteBucketCommand, DeleteObjectsCommand, CreateBucketCommand } from '@aws-sdk/client-s3'
+import { S3Client, DeleteBucketCommand, DeleteObjectsCommand, CreateBucketCommand, waitUntilBucketExists } from '@aws-sdk/client-s3'
 import createS3Store, { createJsonWrapper } from './index.mjs'
 import test from 'ava'
 
@@ -62,7 +62,7 @@ test('delete object', async (t) => {
   const createResult = await store.createObject(key, body, contentType)
 
   // Delete object
-  const deleteResult = await store.deleteObjectIfMatch(key, createResult.etag)
+  const deleteResult = await store.deleteObject(key, createResult.etag)
 
   t.truthy(deleteResult.response, 'response should be returned after deleting object')
 
@@ -135,10 +135,12 @@ async function deleteBucket(bucket) {
 async function createBucket(bucket) {
 
   const input = {
-    Bucket: bucket
+    Bucket: bucket,
+
   }
 
-  return client.send(new CreateBucketCommand(input))
+  await client.send(new CreateBucketCommand(input))
+  await waitUntilBucketExists({ client }, { Bucket: bucket })
 }
 
 function sleep(ms) {

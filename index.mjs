@@ -42,26 +42,26 @@ class S3Store {
     return this.#send(command)
   }
 
-  async getObjectIfMatch(key, etag) {
+  getObjectIfMatch(key, etag) {
     const command = new GetObjectCommand({
       Bucket: this.#bucket,
       Key: key,
       IfMatch: etag
     })
 
-    return await this.#send(command, GetResponseWrapper)
+    return this.#send(command, GetResponseWrapper)
   }
 
-  // this is here because sometimes our only option is to get the object 
+  // this is here because in some use cases our only option is to get the object 
   // without an etag, and it's not really destructive to do so, only
   // to the caller, perhaps, but not to the store
-  async getObject(key) {
+  getObject(key) {
     const command = new GetObjectCommand({
       Bucket: this.#bucket,
       Key: key
     })
 
-    return await this.#send(command, GetResponseWrapper)
+    return this.#send(command, GetResponseWrapper)
   }
 
   async deleteObjectIfMatch(key, etag) {
@@ -80,6 +80,15 @@ class S3Store {
 
       throw error
     }
+  }
+
+  deleteObject(key) {
+    const command = new DeleteObjectCommand({
+      Bucket: this.#bucket,
+      Key: key
+    })
+
+    return this.#send(command)
   }
 
   /**
