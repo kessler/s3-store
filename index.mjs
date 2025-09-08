@@ -17,7 +17,7 @@ class S3Store {
     this.#bucket = bucket
   }
 
-  createObject(key, body, contentType = 'application/json') {
+  async createObject(key, body, contentType = 'application/json') {
     const command = new PutObjectCommand({
       Bucket: this.#bucket,
       Key: key,
@@ -27,10 +27,18 @@ class S3Store {
       IfNoneMatch: '*' 
     })
 
-    return this.#send(command)
+    try {
+      return this.#send(command)
+    } catch (err) {
+      if (err.Code === 'PreconditionFailed') {
+        throw new KeyExistsError('cannot override existing key', err)
+      }
+
+      throw err
+    }
   }
 
-  putObjectIfMatch(key, body, etag, contentType = 'application/json') {
+  async putObjectIfMatch(key, body, etag, contentType = 'application/json') {
     const command = new PutObjectCommand({
       Bucket: this.#bucket,
       Key: key,
@@ -39,17 +47,33 @@ class S3Store {
       IfMatch: etag
     })
 
-    return this.#send(command)
+    try {
+      return await this.#send(command)
+    } catch (err) {
+      if (err.Code === 'PreconditionFailed') {
+        throw new StaleDataError('object was modified concurrently, reload your object first', err)
+      }
+
+      throw err
+    }
   }
 
-  getObjectIfMatch(key, etag) {
+  async getObjectIfMatch(key, etag) {
     const command = new GetObjectCommand({
       Bucket: this.#bucket,
       Key: key,
       IfMatch: etag
     })
 
-    return this.#send(command, GetResponseWrapper)
+    try {
+      return await this.#send(command, GetResponseWrapper)
+    } catch (err) {
+      if (err.Code === 'PreconditionFailed') {
+        throw new StaleDataError('object was modified concurrently, reload your object first. use getObject() instead', err)
+      }
+
+      throw err
+    }
   }
 
   // this is here because in some use cases our only option is to get the object 
@@ -76,6 +100,10 @@ class S3Store {
     } catch (error) {
       if (error.code === 'NotImplemented' && error.Header === 'If-Match') {
         throw new UnsupportedBucketOperationError('This bucket does not support If-Match header for delete operations. Only directory buckets support deletion with If-Match.')
+      }
+
+      if (error.Code === 'PreconditionFailed') {
+        throw new StaleDataError('object was modified concurrently, cannot proceed with deletion', error)
       }
 
       throw error
@@ -208,5 +236,21 @@ export class UnsupportedBucketOperationError extends Error {
   constructor(message) {
     super(message)
     this.name = 'UnsupportedBucketOperationError'
+  }
+}
+
+export class StaleDataError extends Error {
+  constructor(message, originalError) {
+    super(message)
+    this.name = 'StaleDataError'
+    this.originalError = originalError
+  }
+}
+
+export class KeyExistsError extends Error {
+  constructor(message, originalError) {
+    super(message)
+    this.name = 'KeyExistsError'
+    this.originalError = originalError
   }
 }
