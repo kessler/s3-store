@@ -28,10 +28,10 @@ class S3Store {
     })
 
     try {
-      return this.#send(command)
+      return await this.#send(command)
     } catch (err) {
       if (err.Code === 'PreconditionFailed') {
-        throw new KeyExistsError('cannot override existing key', err)
+        throw new KeyExistsError('cannot overwrite an existing key', err)
       }
 
       throw err

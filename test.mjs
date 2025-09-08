@@ -32,6 +32,49 @@ test('create and update and get',async (t) => {
   t.deepEqual(actualObject, testObject1, 'object should match after getting the updated object')
 })
 
+test('create twice', async (t) => {
+  const bucket = t.context.bucket
+  const store = createS3Store(bucket, { client })
+
+  const body = JSON.stringify({ hello: 'world' })
+  const key = 'test-object'
+  const contentType = 'application/json'
+
+  // Create object
+  const createResult1 = await store.createObject(key, body, contentType)
+  t.truthy(createResult1.etag, 'etag should be returned after creating object the first time')
+
+  // Try to create the same object again
+  await t.throwsAsync(() => store.createObject(key, body, contentType), {
+    name: 'KeyExistsError',
+    message: `cannot overwrite an existing key`
+  })
+})
+
+test('stale object', async (t) => {
+  const bucket = t.context.bucket
+  const store = createS3Store(bucket, { client })
+
+  const key = 'test-object'
+  const body = JSON.stringify({ hello: 'world' })
+  const contentType = 'application/json'
+
+  // Create object
+  const createResult = await store.createObject(key, body, contentType)
+
+  const staleEtag = createResult.etag
+
+  // Update object to change its ETag
+  const updatedBody = JSON.stringify({ hello: 'universe' })
+  await store.putObjectIfMatch(key, updatedBody, createResult.etag, contentType)
+
+  // Try to update the object with the stale ETag
+  await t.throwsAsync(() => store.putObjectIfMatch(key, body, staleEtag, contentType), {
+    name: 'StaleDataError',
+    message: `object was modified concurrently, reload your object first`
+  })
+})
+
 test('get object without etag', async (t) => {
   const bucket = t.context.bucket
   const store = createS3Store(bucket, { client })
