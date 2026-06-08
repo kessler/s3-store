@@ -34,6 +34,10 @@ class S3Store {
         throw new KeyExistsError('cannot overwrite an existing key', err)
       }
 
+      if (err.Code === 'ConditionalRequestConflict') {
+        throw new ConcurrentWriteConflictError('create conflicted with a concurrent write to this key, retry', err)
+      }
+
       throw err
     }
   }
@@ -54,6 +58,10 @@ class S3Store {
         throw new StaleDataError('object was modified concurrently, reload your object first', err)
       }
 
+      if (err.Code === 'ConditionalRequestConflict') {
+        throw new ConcurrentWriteConflictError('update conflicted with a concurrent write to this key, retry', err)
+      }
+
       throw err
     }
   }
@@ -70,6 +78,10 @@ class S3Store {
     } catch (err) {
       if (err.Code === 'PreconditionFailed') {
         throw new StaleDataError('object was modified concurrently, reload your object first. use getObject() instead', err)
+      }
+
+      if (err.Code === 'ConditionalRequestConflict') {
+        throw new ConcurrentWriteConflictError('conditional read conflicted with a concurrent write to this key, retry', err)
       }
 
       throw err
@@ -104,6 +116,10 @@ class S3Store {
 
       if (error.Code === 'PreconditionFailed') {
         throw new StaleDataError('object was modified concurrently, cannot proceed with deletion', error)
+      }
+
+      if (error.Code === 'ConditionalRequestConflict') {
+        throw new ConcurrentWriteConflictError('delete conflicted with a concurrent write to this key, retry', error)
       }
 
       throw error
@@ -251,6 +267,14 @@ export class KeyExistsError extends Error {
   constructor(message, originalError) {
     super(message)
     this.name = 'KeyExistsError'
+    this.originalError = originalError
+  }
+}
+
+export class ConcurrentWriteConflictError extends Error {
+  constructor(message, originalError) {
+    super(message)
+    this.name = 'ConcurrentWriteConflictError'
     this.originalError = originalError
   }
 }
