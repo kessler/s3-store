@@ -105,12 +105,12 @@ test('delete object', async (t) => {
   const createResult = await store.createObject(key, body, contentType)
 
   // Delete object
-  const deleteResult = await store.deleteObject(key, createResult.etag)
+  const deleteResult = await store.deleteObject(key)
 
   t.truthy(deleteResult.response, 'response should be returned after deleting object')
 
   // Try to get deleted object
-  await t.throwsAsync(() => store.getObjectIfMatch(key, deleteResult.etag), {
+  await t.throwsAsync(() => store.getObject(key), {
     name: 'NoSuchKey',
     message: `The specified key does not exist.`
   })
