@@ -61,3 +61,36 @@ const getIfMatchResult = await store.getObjectIfMatch(key, updateResult.etag)
 console.log(await getIfMatch.asString())
 
 ```
+
+#### write options
+
+The write methods take their options in a trailing object:
+
+```javascript
+await store.createObject(key, body, { contentType, metadata })
+await store.putObjectIfMatch(key, body, etag, { contentType, metadata })
+```
+
+- `contentType` — defaults to `application/json`
+- `metadata` — S3 user metadata (`x-amz-meta-*`); omitted from the request when not supplied
+
+```javascript
+await store.putObjectIfMatch(key, body, etag, {
+  contentType: 'application/json',
+  metadata: { orgid: 'o', userid: 'u' }
+})
+
+// the json wrapper always writes json, so it only takes metadata
+await jsonStore.putObjectIfMatch(key, obj, etag, { metadata: { orgid: 'o' } })
+```
+
+> **Breaking change in 4.0.0.** `contentType` used to be a positional parameter. Move it
+> into the options object — or drop it entirely, since `application/json` is the default:
+>
+> ```javascript
+> await store.createObject(key, body, 'application/json')   // before
+> await store.createObject(key, body)                       // after
+>
+> await store.createObject(key, body, 'application/gzip')      // before
+> await store.createObject(key, body, { contentType: 'application/gzip' })  // after
+> ```
