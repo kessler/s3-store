@@ -17,14 +17,16 @@ class S3Store {
     this.#bucket = bucket
   }
 
-  async createObject(key, body, contentType = 'application/json') {
+  async createObject(key, body, { contentType = 'application/json', metadata } = {}) {
     const command = new PutObjectCommand({
       Bucket: this.#bucket,
       Key: key,
       Body: body,
       ContentType: contentType,
+      // optional user metadata (x-amz-meta-*); omitted from the request when undefined
+      Metadata: metadata,
       // write only if the object does not already exist
-      IfNoneMatch: '*' 
+      IfNoneMatch: '*'
     })
 
     try {
@@ -42,12 +44,14 @@ class S3Store {
     }
   }
 
-  async putObjectIfMatch(key, body, etag, contentType = 'application/json') {
+  async putObjectIfMatch(key, body, etag, { contentType = 'application/json', metadata } = {}) {
     const command = new PutObjectCommand({
       Bucket: this.#bucket,
       Key: key,
       Body: body,
       ContentType: contentType,
+      // optional user metadata (x-amz-meta-*); omitted from the request when undefined
+      Metadata: metadata,
       IfMatch: etag
     })
 
@@ -227,13 +231,19 @@ class JsonS3StoreWrapper {
     this.#store = store
   }
 
-  async createObject(key, body) {
-    const result = await this.#store.createObject(key, JSON.stringify(body), 'application/json')
+  async createObject(key, body, { metadata } = {}) {
+    const result = await this.#store.createObject(key, JSON.stringify(body), {
+      contentType: 'application/json',
+      metadata
+    })
     return result.etag
   }
 
-  async putObjectIfMatch(key, body, etag) {
-    const result = await this.#store.putObjectIfMatch(key, JSON.stringify(body), etag, 'application/json')
+  async putObjectIfMatch(key, body, etag, { metadata } = {}) {
+    const result = await this.#store.putObjectIfMatch(key, JSON.stringify(body), etag, {
+      contentType: 'application/json',
+      metadata
+    })
     return result.etag
   }
 

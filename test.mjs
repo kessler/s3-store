@@ -13,7 +13,7 @@ test('create and update and get',async (t) => {
   const contentType = 'application/json'
 
   // Create object
-  const createResult = await store.createObject(key, JSON.stringify(testObject), contentType)
+  const createResult = await store.createObject(key, JSON.stringify(testObject), { contentType })
 
   t.truthy(createResult.etag, 'etag should be returned after creating object')
   t.truthy(createResult.response, 'response should be returned after creating object')
@@ -21,7 +21,7 @@ test('create and update and get',async (t) => {
   const testObject1 = { ...testObject, updated: true }
 
   // Update object
-  const putResult = await store.putObjectIfMatch(key, JSON.stringify(testObject1), createResult.etag, contentType)
+  const putResult = await store.putObjectIfMatch(key, JSON.stringify(testObject1), createResult.etag, { contentType })
 
   // // Get object with ETag
   const getResult = await store.getObjectIfMatch(key, putResult.etag)
@@ -41,11 +41,11 @@ test('create twice', async (t) => {
   const contentType = 'application/json'
 
   // Create object
-  const createResult1 = await store.createObject(key, body, contentType)
+  const createResult1 = await store.createObject(key, body, { contentType })
   t.truthy(createResult1.etag, 'etag should be returned after creating object the first time')
 
   // Try to create the same object again
-  await t.throwsAsync(() => store.createObject(key, body, contentType), {
+  await t.throwsAsync(() => store.createObject(key, body, { contentType }), {
     name: 'KeyExistsError',
     message: `cannot overwrite an existing key`
   })
@@ -60,16 +60,16 @@ test('stale object', async (t) => {
   const contentType = 'application/json'
 
   // Create object
-  const createResult = await store.createObject(key, body, contentType)
+  const createResult = await store.createObject(key, body, { contentType })
 
   const staleEtag = createResult.etag
 
   // Update object to change its ETag
   const updatedBody = JSON.stringify({ hello: 'universe' })
-  await store.putObjectIfMatch(key, updatedBody, createResult.etag, contentType)
+  await store.putObjectIfMatch(key, updatedBody, createResult.etag, { contentType })
 
   // Try to update the object with the stale ETag
-  await t.throwsAsync(() => store.putObjectIfMatch(key, body, staleEtag, contentType), {
+  await t.throwsAsync(() => store.putObjectIfMatch(key, body, staleEtag, { contentType }), {
     name: 'StaleDataError',
     message: `object was modified concurrently, reload your object first`
   })
@@ -84,7 +84,7 @@ test('get object without etag', async (t) => {
   const contentType = 'application/json'
 
   // Create object
-  await store.createObject(key, body, contentType)
+  await store.createObject(key, body, { contentType })
 
   // Get object without ETag
   const getWithoutEtag = await store.getObject(key)
@@ -102,7 +102,7 @@ test('delete object', async (t) => {
   const contentType = 'application/json'
 
   // Create object
-  const createResult = await store.createObject(key, body, contentType)
+  const createResult = await store.createObject(key, body, { contentType })
 
   // Delete object
   const deleteResult = await store.deleteObject(key, createResult.etag)
